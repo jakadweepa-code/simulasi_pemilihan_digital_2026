@@ -1,0 +1,1467 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Simulasi E-Voting Pemilihan Kepala Desa</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Plus Jakarta Sans & Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+            background-color: #ffffff;
+            color: #1e293b;
+            overflow-x: hidden;
+            user-select: none;
+        }
+
+        /* Gradien Header Resmi sesuai referensi gambar */
+        .header-ballot-gradient {
+            background: linear-gradient(180deg, #fdf5d2 0%, #fefae8 55%, #ffffff 100%);
+        }
+
+        .welcome-bg-gradient {
+            background: linear-gradient(180deg, #fdf5d2 0%, #ffffff 42%, #f8fafc 100%);
+        }
+
+        /* Animasi garis laser pemindai barcode */
+        @keyframes scanLaser {
+            0%, 100% {
+                top: 12%;
+                opacity: 0.85;
+            }
+            50% {
+                top: 86%;
+                opacity: 1;
+            }
+        }
+        .animate-laser {
+            animation: scanLaser 2.2s ease-in-out infinite;
+        }
+
+        /* Animasi pop-up halus */
+        @keyframes modalPop {
+            0% {
+                opacity: 0;
+                transform: scale(0.92) translateY(12px);
+            }
+            100% {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+        .animate-modal-pop {
+            animation: modalPop 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        /* Animasi efek coblos paku */
+        @keyframes punchImpact {
+            0% {
+                transform: translate(-50%, -50%) scale(1.6);
+                opacity: 0;
+            }
+            60% {
+                transform: translate(-50%, -50%) scale(0.92);
+                opacity: 1;
+            }
+            100% {
+                transform: translate(-50%, -50%) scale(1);
+                opacity: 1;
+            }
+        }
+        .animate-punch {
+            animation: punchImpact 0.22s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+
+        /* Kartu kandidat sesuai gaya referensi */
+        .candidate-card-box {
+            background-color: #f3f4f6;
+            border: 3px solid transparent;
+            border-radius: 14px;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+        }
+        .candidate-card-box:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(37, 137, 216, 0.16);
+        }
+        .candidate-card-box.selected {
+            border-color: #dc2626 !important;
+            box-shadow: 0 8px 24px rgba(220, 38, 38, 0.25);
+        }
+
+        /* Kertas Struk Tanda Bukti */
+        .receipt-paper {
+            background: #ffffff;
+            background-image: radial-gradient(#e2e8f0 0.75px, transparent 0.75px);
+            background-size: 16px 16px;
+        }
+
+        /* CSS Khusus Cetak Tanda Bukti */
+        @media print {
+            body * {
+                visibility: hidden !important;
+            }
+            #printableReceiptArea, #printableReceiptArea * {
+                visibility: visible !important;
+            }
+            #printableReceiptArea {
+                position: fixed !important;
+                left: 50% !important;
+                top: 10mm !important;
+                transform: translateX(-50%) !important;
+                width: 85mm !important;
+                max-width: 100% !important;
+                box-shadow: none !important;
+                border: 1px solid #cbd5e1 !important;
+                background: #ffffff !important;
+                padding: 16px !important;
+                margin: 0 !important;
+            }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between">
+
+    <!-- ===================================================================== -->
+    <!-- ORIENTATION GUARD: PERINGATAN KHUSUS LAYAR POSISI LANSKAP             -->
+    <!-- ===================================================================== -->
+    <div id="portraitGuardOverlay" class="fixed inset-0 z-[100] bg-slate-900/95 backdrop-blur-md text-white hidden flex-col items-center justify-center p-8 text-center">
+        <div class="w-24 h-24 rounded-3xl bg-blue-600/20 border-2 border-blue-400 flex items-center justify-center mb-6">
+            <i class="fa-solid fa-mobile-screen-button text-4xl text-blue-400 animate-bounce" style="transform: rotate(-90deg);"></i>
+        </div>
+        <h2 class="text-2xl font-extrabold mb-2">Gunakan Posisi Layar Lanskap</h2>
+        <p class="text-slate-300 text-sm max-w-md mb-6 leading-relaxed">
+            Aplikasi Simulasi E-Voting ini dirancang khusus untuk tampilan <strong>Lanskap (Horizontal)</strong> agar surat suara dan seluruh kandidat tampil optimal. Silakan putar perangkat Anda.
+        </p>
+        <button onclick="dismissPortraitGuard()" class="px-5 py-2.5 bg-white/10 hover:bg-white/20 border border-white/25 rounded-xl text-xs font-semibold text-slate-200 transition cursor-pointer">
+            Lanjutkan Tetap di Layar Ini
+        </button>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- VIEW 1: HALAMAN SELAMAT DATANG & PENGATURAN SIMULASI                  -->
+    <!-- ===================================================================== -->
+    <section id="viewWelcome" class="min-h-screen w-full welcome-bg-gradient flex flex-col justify-between px-6 lg:px-12 py-5">
+        
+        <!-- Baris Atas: Identitas Wilayah & Tombol Pengaturan -->
+        <header class="w-full max-w-7xl mx-auto flex items-center justify-between gap-4">
+            <div class="flex items-center space-x-3.5">
+                <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-white shadow-sm border border-amber-200/80 p-1.5 flex items-center justify-center shrink-0">
+                    <img id="welcomeRegionLogo" src="" alt="Logo Daerah" class="w-full h-full object-contain">
+                </div>
+                <div>
+                    <span class="inline-block px-2.5 py-0.5 rounded-md bg-blue-100 text-blue-800 text-[11px] font-bold uppercase tracking-wider mb-0.5">
+                        Simulasi Bilik Suara Digital
+                    </span>
+                    <h1 class="text-base sm:text-lg font-extrabold text-slate-900 leading-tight uppercase">
+                        PEMILIHAN KEPALA DESA <span id="welcomeDesaName">SUKALUYU</span>
+                    </h1>
+                    <p class="text-xs font-semibold text-slate-600 uppercase">
+                        KECAMATAN <span id="welcomeKecamatanName">CIBEUNYING KALER</span>, <span id="welcomeKabupatenName">KOTA BANDUNG</span> • TAHUN <span id="welcomeTahun">2025</span>
+                    </p>
+                </div>
+            </div>
+
+            <!-- Tombol Pengaturan -->
+            <button onclick="openSettingsModal()" class="flex items-center space-x-2.5 px-4 py-2.5 bg-white hover:bg-blue-50 text-slate-800 border border-slate-300 hover:border-blue-400 rounded-xl shadow-sm font-bold text-xs sm:text-sm transition cursor-pointer shrink-0">
+                <i class="fa-solid fa-gear text-blue-600 text-base"></i>
+                <span>Pengaturan Kandidat & Wilayah</span>
+            </button>
+        </header>
+
+        <!-- Konten Tengah: Sambutan, Pilihan Jumlah Kandidat, Pratinjau Kandidat & Tombol Mulai -->
+        <main class="w-full max-w-7xl mx-auto my-auto py-4 flex flex-col items-center">
+            
+            <div class="text-center max-w-3xl mb-5">
+                <h2 class="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-slate-900 tracking-tight">
+                    Selamat Datang di Simulasi <span class="text-[#2188dd]">E-Voting</span>
+                </h2>
+                <p class="text-slate-600 text-xs sm:text-sm mt-1.5">
+                    Pilih jumlah kandidat (2–5), sesuaikan nama & foto kandidat atau identitas wilayah melalui menu pengaturan, lalu tekan <strong>MULAI</strong> untuk memindai undangan pemilih.
+                </p>
+            </div>
+
+            <!-- Panel Kontrol Cepat: Pilihan Jumlah Kandidat & Info Pemilih Simulasi -->
+            <div class="w-full max-w-4xl bg-white/95 backdrop-blur-sm border border-slate-200 rounded-2xl shadow-sm p-3.5 sm:p-4 mb-5 flex flex-wrap items-center justify-between gap-4">
+                
+                <!-- Pilihan Jumlah Kandidat (2 - 5) -->
+                <div class="flex items-center space-x-3">
+                    <span class="text-xs sm:text-sm font-bold text-slate-700 flex items-center">
+                        <i class="fa-solid fa-users text-blue-600 mr-2"></i> Jumlah Kandidat:
+                    </span>
+                    <div class="inline-flex bg-slate-100 p-1 rounded-xl border border-slate-200">
+                        <button type="button" onclick="setCandidateCount(2)" id="btnCount2" class="px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition cursor-pointer">2</button>
+                        <button type="button" onclick="setCandidateCount(3)" id="btnCount3" class="px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition cursor-pointer">3</button>
+                        <button type="button" onclick="setCandidateCount(4)" id="btnCount4" class="px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition cursor-pointer">4</button>
+                        <button type="button" onclick="setCandidateCount(5)" id="btnCount5" class="px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition cursor-pointer">5</button>
+                    </div>
+                </div>
+
+                <!-- Pemilih Simulasi Aktif -->
+                <div class="flex items-center space-x-2.5 bg-amber-50 border border-amber-200/80 px-3.5 py-1.5 rounded-xl">
+                    <i class="fa-solid fa-id-badge text-amber-600"></i>
+                    <div class="text-xs">
+                        <span class="text-slate-500">Pemilih Simulasi:</span>
+                        <strong id="welcomeVoterNamePreview" class="text-slate-900 uppercase ml-1">MOCHAMAD ALDDY</strong>
+                    </div>
+                    <button onclick="openSettingsModal('region')" class="text-[11px] font-bold text-blue-600 hover:underline ml-1 cursor-pointer">Ubah</button>
+                </div>
+
+            </div>
+
+            <!-- Strip Pratinjau Kandidat Aktif -->
+            <div class="w-full max-w-5xl mb-6">
+                <div class="flex items-center justify-between mb-2 px-1">
+                    <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Pratinjau Daftar Kandidat (<span id="previewCountLabel">5</span> Kandidat)</span>
+                    <button onclick="openSettingsModal('candidates')" class="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center cursor-pointer">
+                        <i class="fa-solid fa-pen-to-square mr-1"></i> Edit Foto & Nama Kandidat
+                    </button>
+                </div>
+                <div id="welcomeCandidatesPreview" class="grid grid-cols-5 gap-3 sm:gap-4">
+                    <!-- Dirender otomatis oleh JS -->
+                </div>
+            </div>
+
+            <!-- Tombol MULAI Utama -->
+            <button onclick="startVotingWorkflow()" class="group relative inline-flex items-center justify-center px-12 py-4 bg-[#2188dd] hover:bg-[#1974c0] active:scale-[0.98] text-white font-extrabold text-base sm:text-lg tracking-wider uppercase rounded-2xl shadow-lg shadow-blue-500/30 transition-all cursor-pointer">
+                <i class="fa-solid fa-play mr-3 text-sm group-hover:translate-x-0.5 transition-transform"></i>
+                <span>MULAI</span>
+            </button>
+
+        </main>
+
+        <!-- Footer Ringkas -->
+        <footer class="w-full max-w-7xl mx-auto text-center text-[11px] text-slate-400">
+            Mode Simulasi Pemungutan Suara Elektronik • Tampilan Khusus Lanskap
+        </footer>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- VIEW 2: PEMINDAI BARCODE UNDANGAN PEMILIH                             -->
+    <!-- ===================================================================== -->
+    <section id="viewScanner" class="hidden min-h-screen w-full bg-slate-900 text-white flex flex-col justify-between px-6 lg:px-12 py-5">
+        
+        <!-- Header Pemindai -->
+        <header class="w-full max-w-6xl mx-auto flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-white p-1 flex items-center justify-center">
+                    <img id="scannerRegionLogo" src="" alt="Logo" class="w-full h-full object-contain">
+                </div>
+                <div>
+                    <h2 class="text-sm sm:text-base font-extrabold uppercase tracking-wide">Verifikasi Pemilih — Pindai Barcode</h2>
+                    <p class="text-xs text-slate-400">Pilkades <span id="scannerDesaTitle">Sukaluyu</span> • Tahun <span id="scannerTahunTitle">2025</span></p>
+                </div>
+            </div>
+
+            <button onclick="goToWelcome()" class="px-4 py-2 bg-white/10 hover:bg-white/20 text-slate-200 rounded-xl text-xs font-semibold transition flex items-center cursor-pointer">
+                <i class="fa-solid fa-arrow-left mr-2"></i> Kembali ke Beranda
+            </button>
+        </header>
+
+        <!-- Area Pemindai Lanskap 2 Kolom -->
+        <main class="w-full max-w-5xl mx-auto my-auto grid grid-cols-12 gap-6 items-center py-4">
+            
+            <!-- Kolom Kiri: Frame Kamera / Laser Pemindai Barcode -->
+            <div class="col-span-7 flex flex-col items-center">
+                <div class="relative w-full aspect-video bg-slate-950 rounded-3xl border-2 border-slate-700 overflow-hidden shadow-2xl flex items-center justify-center">
+                    
+                    <!-- Video Kamera (jika diaktifkan pengguna) -->
+                    <video id="scannerVideo" autoplay playsinline muted class="hidden w-full h-full object-cover"></video>
+
+                    <!-- Tampilan Simulasi Pemindai Optik Bawaan -->
+                    <div id="scannerSimulatedBackdrop" class="inset-0 w-full h-full flex flex-col items-center justify-center bg-gradient-to-b from-slate-900 via-slate-950 to-slate-900 p-6">
+                        <!-- Ilustrasi Kartu Undangan / Barcode -->
+                        <div class="bg-white text-slate-900 px-6 py-4 rounded-2xl shadow-lg border border-slate-200 flex flex-col items-center max-w-xs w-full">
+                            <span class="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Kartu Undangan Pemilih (C6)</span>
+                            <p id="scannerCardVoterName" class="text-sm font-extrabold uppercase text-slate-900 mb-2">MOCHAMAD ALDDY</p>
+                            <!-- SVG Barcode -->
+                            <svg class="w-48 h-14" viewBox="0 0 200 50" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <rect x="4" y="2" width="4" height="46" fill="#0f172a"/>
+                                <rect x="12" y="2" width="2" height="46" fill="#0f172a"/>
+                                <rect x="18" y="2" width="6" height="46" fill="#0f172a"/>
+                                <rect x="28" y="2" width="2" height="46" fill="#0f172a"/>
+                                <rect x="34" y="2" width="4" height="46" fill="#0f172a"/>
+                                <rect x="43" y="2" width="8" height="46" fill="#0f172a"/>
+                                <rect x="55" y="2" width="2" height="46" fill="#0f172a"/>
+                                <rect x="61" y="2" width="4" height="46" fill="#0f172a"/>
+                                <rect x="70" y="2" width="2" height="46" fill="#0f172a"/>
+                                <rect x="76" y="2" width="6" height="46" fill="#0f172a"/>
+                                <rect x="86" y="2" width="4" height="46" fill="#0f172a"/>
+                                <rect x="94" y="2" width="2" height="46" fill="#0f172a"/>
+                                <rect x="100" y="2" width="6" height="46" fill="#0f172a"/>
+                                <rect x="110" y="2" width="3" height="46" fill="#0f172a"/>
+                                <rect x="117" y="2" width="7" height="46" fill="#0f172a"/>
+                                <rect x="128" y="2" width="2" height="46" fill="#0f172a"/>
+                                <rect x="134" y="2" width="5" height="46" fill="#0f172a"/>
+                                <rect x="143" y="2" width="2" height="46" fill="#0f172a"/>
+                                <rect x="149" y="2" width="6" height="46" fill="#0f172a"/>
+                                <rect x="159" y="2" width="3" height="46" fill="#0f172a"/>
+                                <rect x="166" y="2" width="7" height="46" fill="#0f172a"/>
+                                <rect x="177" y="2" width="2" height="46" fill="#0f172a"/>
+                                <rect x="183" y="2" width="5" height="46" fill="#0f172a"/>
+                                <rect x="192" y="2" width="4" height="46" fill="#0f172a"/>
+                            </svg>
+                            <span class="text-[10px] font-mono text-slate-500 mt-1">REG-2025-008492-PILKADES</span>
+                        </div>
+                    </div>
+
+                    <!-- Sudut Bingkai Bidik (Viewfinder Corners) -->
+                    <div class="absolute inset-6 pointer-events-none">
+                        <div class="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-blue-400 rounded-tl-xl"></div>
+                        <div class="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-blue-400 rounded-tr-xl"></div>
+                        <div class="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-blue-400 rounded-bl-xl"></div>
+                        <div class="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-blue-400 rounded-br-xl"></div>
+                        <!-- Garis Laser Merah -->
+                        <div class="absolute left-2 right-2 h-0.5 bg-red-500 shadow-[0_0_12px_2px_rgba(239,68,68,0.9)] animate-laser"></div>
+                    </div>
+
+                    <!-- Overlay Status Berhasil Dipindai -->
+                    <div id="scanSuccessOverlay" class="hidden absolute inset-0 bg-emerald-950/90 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center animate-modal-pop">
+                        <div class="w-16 h-16 rounded-full bg-emerald-500 text-white flex items-center justify-center text-3xl mb-3 shadow-lg">
+                            <i class="fa-solid fa-check"></i>
+                        </div>
+                        <span class="px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400 text-emerald-300 text-xs font-bold uppercase tracking-wider mb-1">
+                            Barcode Terverifikasi
+                        </span>
+                        <h3 id="scanVerifiedVoterName" class="text-xl font-extrabold text-white uppercase">MOCHAMAD ALDDY</h3>
+                        <p class="text-xs text-emerald-200 mt-1">Membuka Surat Suara Digital...</p>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Kolom Kanan: Instruksi & Tombol Aksi Pemindaian -->
+            <div class="col-span-5 bg-slate-800/80 border border-slate-700 rounded-3xl p-6 space-y-5">
+                <div>
+                    <span class="inline-flex items-center px-2.5 py-1 rounded-lg bg-blue-500/20 text-blue-300 text-xs font-bold mb-2">
+                        <i class="fa-solid fa-barcode mr-1.5"></i> Langkah 1 dari 2
+                    </span>
+                    <h3 class="text-xl font-extrabold text-white leading-snug">Pindai Barcode Undangan</h3>
+                    <p class="text-xs text-slate-300 mt-1.5 leading-relaxed">
+                        Arahkan barcode pada Surat Pemberitahuan Pemungutan Suara ke depan pemindai, atau gunakan tombol simulasi pindai di bawah ini.
+                    </p>
+                </div>
+
+                <!-- Input Nama Pemilih Cepat (Opsional untuk simulasi ganti pemilih) -->
+                <div>
+                    <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Nama Pemilih Terdaftar</label>
+                    <input type="text" id="scannerVoterInput" oninput="syncVoterNameFromScanner(this.value)" class="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-600 rounded-xl text-sm font-bold text-white uppercase focus:border-blue-400 outline-none" placeholder="Masukkan nama pemilih...">
+                </div>
+
+                <!-- Tombol Pindai Simulasi -->
+                <div class="space-y-2.5 pt-1">
+                    <button onclick="triggerBarcodeScanSuccess()" class="w-full py-3.5 px-5 bg-[#2188dd] hover:bg-[#1974c0] active:scale-[0.98] text-white font-extrabold text-sm rounded-xl shadow-lg shadow-blue-500/25 transition flex items-center justify-center space-x-2 cursor-pointer">
+                        <i class="fa-solid fa-qrcode text-base"></i>
+                        <span>Pindai Barcode Sekarang</span>
+                    </button>
+
+                    <button type="button" id="btnToggleCamera" onclick="toggleRealCamera()" class="w-full py-2.5 px-4 bg-slate-700/70 hover:bg-slate-700 text-slate-200 font-semibold text-xs rounded-xl border border-slate-600 transition flex items-center justify-center space-x-2 cursor-pointer">
+                        <i class="fa-solid fa-camera"></i>
+                        <span id="btnToggleCameraText">Aktifkan Kamera Perangkat</span>
+                    </button>
+                </div>
+            </div>
+
+        </main>
+
+        <footer class="w-full max-w-6xl mx-auto text-center text-[11px] text-slate-500">
+            Sistem Autentikasi Surat Suara Digital • Pastikan nama pemilih sesuai sebelum masuk bilik suara
+        </footer>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- VIEW 3: HALAMAN PEMILIHAN / SURAT SUARA (SESUAI REFERENSI GAMBAR)     -->
+    <!-- ===================================================================== -->
+    <section id="viewBallot" class="hidden min-h-screen w-full bg-white flex flex-col justify-between">
+        
+        <!-- Bagian Atas: Gradien Krem Lembut ke Putih (Persis Referensi) -->
+        <div class="w-full header-ballot-gradient pt-4 pb-3 px-6 lg:px-10">
+            <div class="max-w-7xl mx-auto grid grid-cols-12 items-start">
+                
+                <!-- Kiri Atas: Selamat Datang & Nama Pemilih -->
+                <div class="col-span-3 pt-2 text-left">
+                    <p class="text-xs sm:text-sm text-slate-600 font-medium">Selamat Datang,</p>
+                    <p id="ballotVoterName" class="text-sm sm:text-base font-extrabold text-slate-900 uppercase tracking-tight mt-0.5">
+                        MOCHAMAD ALDDY
+                    </p>
+                </div>
+
+                <!-- Tengah Atas: Logo Daerah, SURAT SUARA, Desa, Kecamatan, Kota, Tahun -->
+                <div class="col-span-6 flex flex-col items-center text-center">
+                    <div class="w-12 h-14 sm:w-14 sm:h-16 mb-2 flex items-center justify-center">
+                        <img id="ballotRegionLogo" src="" alt="Logo Daerah" class="max-w-full max-h-full object-contain drop-shadow-xs">
+                    </div>
+                    <h1 class="text-xl sm:text-2xl lg:text-[26px] font-extrabold text-[#2188dd] tracking-wide uppercase leading-none mb-1.5">
+                        SURAT SUARA
+                    </h1>
+                    <p class="text-xs sm:text-[13px] font-extrabold text-slate-900 uppercase tracking-tight leading-snug">
+                        PEMILIHAN KEPALA DESA <span id="ballotDesaName">SUKALUYU</span>
+                    </p>
+                    <p class="text-xs sm:text-[13px] font-extrabold text-slate-900 uppercase tracking-tight leading-snug">
+                        KECAMATAN <span id="ballotKecamatanName">CIBEUNYING KALER</span>, <span id="ballotKabupatenName">KOTA BANDUNG</span>
+                    </p>
+                    <p class="text-xs sm:text-[13px] font-extrabold text-slate-900 uppercase tracking-tight leading-snug">
+                        TAHUN <span id="ballotTahun">2025</span>
+                    </p>
+                </div>
+
+                <!-- Kanan Atas: Kotak Vertikal "SAYA TIDAK AKAN MEMILIH" -->
+                <div class="col-span-3 flex justify-end">
+                    <button type="button" id="btnAbstainCard" onclick="selectAbstainOption()" class="w-24 sm:w-28 h-28 sm:h-32 bg-[#f5f6f8] hover:bg-slate-200/80 border-2 border-transparent rounded-2xl shadow-sm flex flex-col items-center justify-center p-2.5 text-center transition-all cursor-pointer">
+                        <span class="text-[11px] sm:text-xs font-extrabold text-slate-800 uppercase leading-tight">
+                            SAYA TIDAK<br>AKAN MEMILIH
+                        </span>
+                    </button>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Bagian Tengah: Barisan Kartu Kandidat (2 hingga 5 Kandidat) -->
+        <main class="w-full max-w-6xl mx-auto px-6 lg:px-10 my-auto py-3 flex flex-col items-center">
+            
+            <!-- Grid Kartu Kandidat Horizontal -->
+            <div id="ballotCandidatesRow" class="w-full grid grid-cols-5 gap-4 sm:gap-5 lg:gap-6 justify-center items-stretch mb-6">
+                <!-- Kartu kandidat dirender secara dinamis -->
+            </div>
+
+            <!-- Tombol Bawah Full-Width Biru: PILIH KANDIDAT INI -->
+            <div class="w-full">
+                <button type="button" id="btnConfirmSelection" onclick="openConfirmVoteModal()" disabled class="w-full py-3.5 sm:py-4 bg-[#2b8ce5] hover:bg-[#1e78cc] disabled:bg-[#7cb8ef] disabled:cursor-not-allowed text-white font-extrabold text-xs sm:text-sm uppercase tracking-wider rounded-xl shadow-md transition-all cursor-pointer">
+                    PILIH KANDIDAT INI
+                </button>
+            </div>
+
+        </main>
+
+        <!-- Spacer bawah minimal agar proporsional di layar lanskap -->
+        <div class="h-3"></div>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- VIEW 6: HALAMAN TANDA BUKTI & PRATINJAU TANDA BUKTI                   -->
+    <!-- ===================================================================== -->
+    <section id="viewReceipt" class="hidden min-h-screen w-full bg-slate-100 flex flex-col justify-between px-6 lg:px-12 py-5">
+        
+        <!-- Header Tanda Bukti -->
+        <header class="w-full max-w-6xl mx-auto flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow">
+                    <i class="fa-solid fa-file-circle-check text-lg"></i>
+                </div>
+                <div>
+                    <h2 class="text-base sm:text-lg font-extrabold text-slate-900">Tanda Bukti Pemungutan Suara</h2>
+                    <p class="text-xs text-slate-500">Pratinjau dokumen bukti partisipasi pemilih (Simulasi)</p>
+                </div>
+            </div>
+
+            <span class="px-3 py-1.5 rounded-xl bg-emerald-100 text-emerald-800 text-xs font-bold flex items-center">
+                <i class="fa-solid fa-shield-check mr-1.5"></i> Suara Sah Tersimpan
+            </span>
+        </header>
+
+        <!-- Konten Utama: Pratinjau Struk Tanda Bukti & Panel Aksi -->
+        <main class="w-full max-w-5xl mx-auto my-auto py-4 grid grid-cols-12 gap-8 items-center">
+            
+            <!-- Kolom Kiri (7 kolom): Pratinjau Kertas Tanda Bukti (Printable Area) -->
+            <div class="col-span-7 flex justify-center">
+                <div id="printableReceiptArea" class="receipt-paper w-full max-w-md rounded-2xl shadow-xl border border-slate-200 p-6 text-slate-800 relative">
+                    
+                    <!-- Kop Resmi Tanda Bukti -->
+                    <div class="flex flex-col items-center text-center border-b-2 border-dashed border-slate-300 pb-4 mb-4">
+                        <img id="receiptRegionLogo" src="" alt="Logo Daerah" class="w-12 h-12 object-contain mb-2">
+                        <h3 class="text-xs font-extrabold uppercase tracking-wider text-slate-900">
+                            PANITIA PEMILIHAN KEPALA DESA <span id="receiptDesaName">SUKALUYU</span>
+                        </h3>
+                        <p class="text-[11px] font-semibold text-slate-600 uppercase">
+                            KEC. <span id="receiptKecamatanName">CIBEUNYING KALER</span>, <span id="receiptKabupatenName">KOTA BANDUNG</span>
+                        </p>
+                        <span class="mt-2 px-3 py-0.5 bg-slate-900 text-white text-[10px] font-bold uppercase tracking-widest rounded">
+                            TANDA BUKTI PEMILIHAN • TAHUN <span id="receiptTahun">2025</span>
+                        </span>
+                    </div>
+
+                    <!-- Rincian Bukti Pemilihan -->
+                    <div class="space-y-2.5 text-xs border-b-2 border-dashed border-slate-300 pb-4 mb-4">
+                        <div class="flex justify-between">
+                            <span class="text-slate-500">Nomor Registrasi:</span>
+                            <span id="receiptTxCode" class="font-mono font-bold text-slate-900">EV-2025-88412</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-500">Nama Pemilih:</span>
+                            <span id="receiptVoterName" class="font-bold uppercase text-slate-900">MOCHAMAD ALDDY</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-500">Waktu Pemilihan:</span>
+                            <span id="receiptTimestamp" class="font-semibold text-slate-800">27 Nov 2026, 10:58 WIB</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-500">Status Surat Suara:</span>
+                            <span class="font-bold text-emerald-700 uppercase">SAH & TERENKRIPSI</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-500">Keterangan:</span>
+                            <span class="font-semibold text-slate-700 italic">Pilihan Dirahasiakan (Luber Jurdil)</span>
+                        </div>
+                    </div>
+
+                    <!-- QR Code Verifikasi & Footer Struk -->
+                    <div class="flex items-center justify-between gap-4">
+                        <div class="text-[10px] text-slate-500 leading-relaxed">
+                            <p class="font-bold text-slate-700 mb-0.5">Bukti Sah Partisipasi</p>
+                            <p>Simpan tanda bukti ini sebagai tanda telah menggunakan hak pilih pada simulasi E-Voting.</p>
+                        </div>
+                        <!-- SVG QR Code -->
+                        <div class="p-1.5 bg-white border border-slate-200 rounded-lg shrink-0">
+                            <svg class="w-14 h-14" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <rect width="60" height="60" fill="white"/>
+                                <rect x="4" y="4" width="16" height="16" stroke="#0f172a" stroke-width="3"/>
+                                <rect x="9" y="9" width="6" height="6" fill="#0f172a"/>
+                                <rect x="40" y="4" width="16" height="16" stroke="#0f172a" stroke-width="3"/>
+                                <rect x="45" y="9" width="6" height="6" fill="#0f172a"/>
+                                <rect x="4" y="40" width="16" height="16" stroke="#0f172a" stroke-width="3"/>
+                                <rect x="9" y="45" width="6" height="6" fill="#0f172a"/>
+                                <rect x="26" y="6" width="4" height="8" fill="#0f172a"/>
+                                <rect x="26" y="20" width="8" height="4" fill="#0f172a"/>
+                                <rect x="6" y="26" width="10" height="4" fill="#0f172a"/>
+                                <rect x="24" y="28" width="12" height="12" fill="#0f172a"/>
+                                <rect x="42" y="26" width="14" height="4" fill="#0f172a"/>
+                                <rect x="40" y="36" width="6" height="12" fill="#0f172a"/>
+                                <rect x="50" y="42" width="6" height="14" fill="#0f172a"/>
+                                <rect x="26" y="46" width="8" height="10" fill="#0f172a"/>
+                            </svg>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Kolom Kanan (5 kolom): Informasi & Tombol Cetak / Ke Halaman Utama -->
+            <div class="col-span-5 bg-white rounded-3xl shadow-sm border border-slate-200 p-6 space-y-5">
+                <div class="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl">
+                    <i class="fa-solid fa-print"></i>
+                </div>
+                <div>
+                    <h3 class="text-xl font-extrabold text-slate-900">Proses Pemilihan Selesai</h3>
+                    <p class="text-xs sm:text-sm text-slate-600 mt-1.5 leading-relaxed">
+                        Pratinjau tanda bukti pemungutan suara Anda ditampilkan di sebelah kiri. Anda dapat mencetak tanda bukti ini atau kembali ke halaman utama untuk memulai simulasi berikutnya.
+                    </p>
+                </div>
+
+                <div class="space-y-3 pt-2">
+                    <button onclick="printReceipt()" class="w-full py-3.5 px-5 bg-[#2188dd] hover:bg-[#1974c0] active:scale-[0.98] text-white font-extrabold text-sm rounded-xl shadow-lg shadow-blue-500/25 transition flex items-center justify-center space-x-2 cursor-pointer">
+                        <i class="fa-solid fa-print"></i>
+                        <span>Cetak Tanda Bukti</span>
+                    </button>
+
+                    <button onclick="goToWelcome()" class="w-full py-3.5 px-5 bg-slate-800 hover:bg-slate-900 active:scale-[0.98] text-white font-bold text-sm rounded-xl shadow transition flex items-center justify-center space-x-2 cursor-pointer">
+                        <i class="fa-solid fa-house"></i>
+                        <span>Ke Halaman Utama</span>
+                    </button>
+                </div>
+            </div>
+
+        </main>
+
+        <footer class="w-full max-w-6xl mx-auto text-center text-[11px] text-slate-400">
+            Simulasi E-Voting Pilkades • Kerahasiaan pilihan pemilih terjamin sepenuhnya
+        </footer>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- POP-UP 1: KONFIRMASI PEMILIHAN ("ANDA YAKIN AKAN MEMILIH...")          -->
+    <!-- ===================================================================== -->
+    <div id="modalConfirmVote" class="fixed inset-0 z-50 hidden bg-slate-900/65 backdrop-blur-xs flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-sm w-full p-6 text-center animate-modal-pop">
+            
+            <h3 class="text-lg sm:text-xl font-extrabold text-slate-900 mb-4 leading-snug">
+                Konfirmasi Pemilihan<br>
+                <span id="confirmQuestionText" class="text-sm sm:text-base font-bold text-[#dc2626] mt-1 inline-block">
+                    Anda yakin akan memilih kandidat ini?
+                </span>
+            </h3>
+
+            <!-- Foto Kandidat & Nama Kandidat di bawah foto -->
+            <div id="confirmCandidateBox" class="mx-auto w-44 bg-[#f3f4f6] rounded-2xl p-2.5 border border-slate-200 shadow-inner mb-6">
+                <div class="w-full aspect-[4/4.4] rounded-xl overflow-hidden bg-[#1e88e5] mb-2.5">
+                    <img id="confirmCandidatePhoto" src="" alt="Foto Kandidat" class="w-full h-full object-cover">
+                </div>
+                <p id="confirmCandidateName" class="text-sm sm:text-base font-extrabold text-slate-900 pb-1">
+                    Budi Prayoga
+                </p>
+            </div>
+
+            <!-- Kotak Khusus jika memilih "SAYA TIDAK AKAN MEMILIH" -->
+            <div id="confirmAbstainBox" class="hidden mx-auto w-48 bg-slate-100 rounded-2xl p-6 border border-slate-300 mb-6">
+                <i class="fa-solid fa-ban text-4xl text-slate-500 mb-2"></i>
+                <p class="text-sm font-extrabold text-slate-800 uppercase">SAYA TIDAK AKAN MEMILIH</p>
+            </div>
+
+            <!-- Tombol "ULANGI" (Warna Merah) & "PILIH" (Warna Biru) -->
+            <div class="grid grid-cols-2 gap-3.5">
+                <button type="button" onclick="closeConfirmVoteModal()" class="py-3 px-4 bg-[#dc2626] hover:bg-[#b91c1c] active:scale-[0.98] text-white font-extrabold text-sm uppercase tracking-wider rounded-xl shadow-md shadow-red-500/25 transition cursor-pointer">
+                    ULANGI
+                </button>
+                <button type="button" onclick="submitConfirmedVote()" class="py-3 px-4 bg-[#2188dd] hover:bg-[#1974c0] active:scale-[0.98] text-white font-extrabold text-sm uppercase tracking-wider rounded-xl shadow-md shadow-blue-500/25 transition cursor-pointer">
+                    PILIH
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- POP-UP 2: TERIMA KASIH ("SUARA BERHASIL DIKIRIM DAN TERSIMPAN")       -->
+    <!-- ===================================================================== -->
+    <div id="modalThankYou" class="fixed inset-0 z-50 hidden bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-md w-full p-8 text-center animate-modal-pop">
+            <div class="w-20 h-20 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-4xl mx-auto mb-4 shadow-inner">
+                <i class="fa-solid fa-circle-check"></i>
+            </div>
+            <h3 class="text-2xl font-extrabold text-slate-900 mb-1.5">Terima Kasih</h3>
+            <p class="text-base font-semibold text-emerald-700 mb-6">
+                Suara berhasil dikirim dan tersimpan
+            </p>
+            <button type="button" onclick="proceedToReceipt()" class="w-full py-3.5 px-6 bg-[#2188dd] hover:bg-[#1974c0] text-white font-extrabold text-sm uppercase tracking-wider rounded-xl shadow-lg shadow-blue-500/25 transition cursor-pointer">
+                Lihat Tanda Bukti <i class="fa-solid fa-arrow-right ml-2"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- MODAL PENGATURAN: FOTO/NAMA KANDIDAT & LOGO/NAMA WILAYAH              -->
+    <!-- ===================================================================== -->
+    <div id="modalSettings" class="fixed inset-0 z-50 hidden bg-slate-900/65 backdrop-blur-xs flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[90vh] flex flex-col animate-modal-pop">
+            
+            <!-- Header Modal -->
+            <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50 rounded-t-3xl">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-xl bg-[#2188dd] text-white flex items-center justify-center">
+                        <i class="fa-solid fa-sliders"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-base sm:text-lg font-extrabold text-slate-900">Pengaturan Simulasi E-Voting</h3>
+                        <p class="text-xs text-slate-500">Atur identitas wilayah, logo daerah, serta foto dan nama kandidat</p>
+                    </div>
+                </div>
+                <button onclick="closeSettingsModal()" class="w-9 h-9 rounded-full bg-slate-200/80 hover:bg-slate-300 text-slate-700 flex items-center justify-center transition cursor-pointer">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- Tab Navigasi Pengaturan -->
+            <div class="px-6 pt-3 border-b border-slate-200 flex space-x-4 bg-white">
+                <button type="button" id="tabBtnCandidates" onclick="switchSettingsTab('candidates')" class="pb-3 text-xs sm:text-sm font-extrabold border-b-2 border-[#2188dd] text-[#2188dd] cursor-pointer">
+                    <i class="fa-solid fa-users mr-1.5"></i> Foto & Nama Kandidat
+                </button>
+                <button type="button" id="tabBtnRegion" onclick="switchSettingsTab('region')" class="pb-3 text-xs sm:text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-800 cursor-pointer">
+                    <i class="fa-solid fa-landmark mr-1.5"></i> Logo Daerah, Desa, Kecamatan & Kabupaten
+                </button>
+            </div>
+
+            <!-- Isi Modal (Scrollable) -->
+            <div class="p-6 overflow-y-auto flex-grow">
+                
+                <!-- TAB 1: PENGATURAN FOTO & NAMA KANDIDAT -->
+                <div id="settingsTabCandidates" class="space-y-4">
+                    <div class="flex items-center justify-between bg-blue-50/70 border border-blue-100 px-4 py-2.5 rounded-xl">
+                        <span class="text-xs font-bold text-blue-900">Jumlah Kandidat Aktif di Surat Suara:</span>
+                        <select id="modalCandidateCountSelect" onchange="renderSettingsCandidatesList(parseInt(this.value))" class="px-3 py-1.5 bg-white border border-blue-200 rounded-lg text-xs font-extrabold text-blue-900 outline-none">
+                            <option value="2">2 Kandidat</option>
+                            <option value="3">3 Kandidat</option>
+                            <option value="4">4 Kandidat</option>
+                            <option value="5">5 Kandidat</option>
+                        </select>
+                    </div>
+
+                    <div id="settingsCandidatesGrid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- Form kandidat dirender otomatis -->
+                    </div>
+                </div>
+
+                <!-- TAB 2: PENGATURAN LOGO DAERAH, DESA, KECAMATAN, KABUPATEN -->
+                <div id="settingsTabRegion" class="hidden space-y-5">
+                    <div class="grid grid-cols-12 gap-6 items-start">
+                        
+                        <!-- Upload Logo Daerah -->
+                        <div class="col-span-5 bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col items-center text-center">
+                            <span class="text-xs font-bold uppercase text-slate-500 mb-3">Logo Daerah / Kabupaten</span>
+                            <div class="w-24 h-24 rounded-2xl bg-white border border-slate-200 shadow-xs p-2 flex items-center justify-center mb-3">
+                                <img id="settingsLogoPreview" src="" alt="Preview Logo" class="max-w-full max-h-full object-contain">
+                            </div>
+                            <label class="px-4 py-2 bg-[#2188dd] hover:bg-[#1974c0] text-white text-xs font-bold rounded-xl cursor-pointer transition shadow-xs">
+                                <i class="fa-solid fa-upload mr-1.5"></i> Ganti Logo Daerah
+                                <input type="file" accept="image/*" onchange="handleLogoUpload(event)" class="hidden">
+                            </label>
+                            <button type="button" onclick="resetRegionLogo()" class="mt-2 text-[11px] font-semibold text-slate-400 hover:text-slate-600 cursor-pointer">
+                                Gunakan Logo Bawaan
+                            </button>
+                        </div>
+
+                        <!-- Input Nama Desa, Kecamatan, Kabupaten, Tahun & Pemilih -->
+                        <div class="col-span-7 space-y-3">
+                            <div>
+                                <label class="block text-[11px] font-bold uppercase text-slate-600 mb-1">Nama Desa</label>
+                                <input type="text" id="inputDesa" class="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-sm font-bold uppercase focus:border-blue-500 outline-none" placeholder="Contoh: SUKALUYU">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-bold uppercase text-slate-600 mb-1">Nama Kecamatan</label>
+                                <input type="text" id="inputKecamatan" class="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-sm font-bold uppercase focus:border-blue-500 outline-none" placeholder="Contoh: CIBEUNYING KALER">
+                            </div>
+                            <div class="grid grid-cols-3 gap-3">
+                                <div class="col-span-2">
+                                    <label class="block text-[11px] font-bold uppercase text-slate-600 mb-1">Kabupaten / Kota</label>
+                                    <input type="text" id="inputKabupaten" class="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-sm font-bold uppercase focus:border-blue-500 outline-none" placeholder="Contoh: KOTA BANDUNG">
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-bold uppercase text-slate-600 mb-1">Tahun</label>
+                                    <input type="text" id="inputTahun" class="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-sm font-bold uppercase focus:border-blue-500 outline-none" placeholder="2025">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-bold uppercase text-slate-600 mb-1">Nama Pemilih Simulasi (Default)</label>
+                                <input type="text" id="inputVoterName" class="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-sm font-bold uppercase focus:border-blue-500 outline-none" placeholder="Contoh: MOCHAMAD ALDDY">
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Footer Modal -->
+            <div class="px-6 py-4 border-t border-slate-200 bg-slate-50 rounded-b-3xl flex items-center justify-between">
+                <button type="button" onclick="resetAllToDefault()" class="text-xs font-bold text-slate-500 hover:text-red-600 transition cursor-pointer">
+                    <i class="fa-solid fa-rotate-left mr-1"></i> Reset Semua ke Bawaan
+                </button>
+                <div class="flex items-center space-x-3">
+                    <button type="button" onclick="closeSettingsModal()" class="px-5 py-2.5 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 font-bold rounded-xl text-xs sm:text-sm transition cursor-pointer">
+                        Batal
+                    </button>
+                    <button type="button" onclick="saveSettingsModal()" class="px-6 py-2.5 bg-[#2188dd] hover:bg-[#1974c0] text-white font-extrabold rounded-xl text-xs sm:text-sm shadow-md transition cursor-pointer">
+                        <i class="fa-solid fa-check mr-1.5"></i> Simpan Pengaturan
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // =========================================================================
+        // 1. GENERATOR LOGO DAERAH & AVATAR STUDIO PAS FOTO BERLATAR BIRU (SVG)
+        // =========================================================================
+        const DEFAULT_REGION_LOGO_SVG = 'data:image/svg+xml;utf8,' + encodeURIComponent(`
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 140">
+                <!-- Perisai Resmi Daerah -->
+                <path d="M15 12 H105 V72 C105 104 60 128 60 128 C60 128 15 104 15 72 Z" fill="#15803d" stroke="#eab308" stroke-width="5"/>
+                <path d="M22 19 H98 V70 C98 97 60 119 60 119 C60 119 22 97 22 70 Z" fill="#fef08a"/>
+                <!-- Gunung & Gedung Pemerintahan -->
+                <polygon points="24,78 60,34 96,78" fill="#166534"/>
+                <rect x="44" y="56" width="32" height="22" fill="#ffffff" stroke="#14532d" stroke-width="2"/>
+                <polygon points="40,56 60,42 80,56" fill="#ca8a04"/>
+                <!-- Gelombang Air / Sungai -->
+                <path d="M24 82 H96 V94 C84 106 60 117 60 117 C60 117 36 106 24 94 Z" fill="#0284c7"/>
+                <path d="M30 89 Q45 84 60 89 T90 89" stroke="#ffffff" stroke-width="2.5" fill="none"/>
+                <path d="M36 98 Q48 94 60 98 T84 98" stroke="#ffffff" stroke-width="2.5" fill="none"/>
+                <!-- Pita Bawah -->
+                <rect x="24" y="122" width="72" height="12" rx="4" fill="#eab308" stroke="#854d0e" stroke-width="1.5"/>
+            </svg>
+        `.trim());
+
+        function createFormalStudioPortrait({ skin, hair, isHijab, hijabColor, hasGlasses, tieColor, expression = 'smile' }) {
+            const hijabBack = isHijab
+                ? `<path d="M42 75 C32 115, 28 165, 36 195 L164 195 C172 165, 168 115, 158 75 C148 36, 52 36, 42 75 Z" fill="${hijabColor}"/>`
+                : '';
+            const hairTop = !isHijab
+                ? `<path d="M56 76 C54 34, 146 34, 144 76 C138 54, 62 54, 56 76 Z" fill="${hair}"/>`
+                : `<path d="M56 76 C60 44, 140 44, 144 76 C132 58, 68 58, 56 76 Z" fill="${hijabColor}"/>`;
+            const glassesSVG = hasGlasses
+                ? `<g stroke="#1e293b" stroke-width="3" fill="rgba(255,255,255,0.12)">
+                     <rect x="68" y="84" width="26" height="16" rx="4"/>
+                     <rect x="106" y="84" width="26" height="16" rx="4"/>
+                     <line x1="94" y1="91" x2="106" y2="91"/>
+                   </g>`
+                : '';
+            const shirtAndTie = isHijab
+                ? `<polygon points="84,146 116,146 100,188" fill="#ffffff"/>
+                   <path d="M62 146 L138 146 L168 220 L32 220 Z" fill="#18181b"/>
+                   <polygon points="84,146 100,185 116,146" fill="#ffffff"/>`
+                : `<polygon points="82,146 118,146 100,192" fill="#f8fafc"/>
+                   <polygon points="95,152 105,152 107,188 100,195 93,188" fill="${tieColor}"/>
+                   <path d="M28 220 C32 162, 58 148, 82 146 L100 194 L118 146 C142 148, 168 162, 172 220 Z" fill="#18181b"/>`;
+
+            const svg = `
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 220">
+                <!-- Latar Pas Foto Resmi Biru Cerah -->
+                <defs>
+                    <linearGradient id="studioBlue" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stop-color="#1e88e5"/>
+                        <stop offset="100%" stop-color="#1976d2"/>
+                    </linearGradient>
+                </defs>
+                <rect width="200" height="220" fill="url(#studioBlue)"/>
+                ${hijabBack}
+                <!-- Leher -->
+                <rect x="85" y="120" width="30" height="32" rx="8" fill="${skin}"/>
+                <!-- Jas Hitam & Kemeja -->
+                ${shirtAndTie}
+                <!-- Wajah -->
+                <ellipse cx="100" cy="92" rx="38" ry="44" fill="${skin}"/>
+                <!-- Alis & Mata -->
+                <path d="M73 80 Q82 76 91 80" stroke="#1e293b" stroke-width="3" fill="none" stroke-linecap="round"/>
+                <path d="M109 80 Q118 76 127 80" stroke="#1e293b" stroke-width="3" fill="none" stroke-linecap="round"/>
+                <circle cx="82" cy="91" r="4" fill="#1e293b"/>
+                <circle cx="118" cy="91" r="4" fill="#1e293b"/>
+                <!-- Hidung & Senyum -->
+                <path d="M100 92 L97 105 L103 105" stroke="#b4835b" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+                <path d="M88 115 Q100 124 112 115" stroke="#7c2d12" stroke-width="2.8" fill="none" stroke-linecap="round"/>
+                ${glassesSVG}
+                ${hairTop}
+            </svg>`;
+            return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg.trim());
+        }
+
+        const PRESET_PORTRAITS = [
+            createFormalStudioPortrait({ skin: '#f1c27d', hair: '#18181b', isHijab: false, hasGlasses: false, tieColor: '#1e3a8a' }),
+            createFormalStudioPortrait({ skin: '#e6b073', hair: '#18181b', isHijab: false, hasGlasses: false, tieColor: '#6b21a8' }),
+            createFormalStudioPortrait({ skin: '#ffdbac', hair: '#18181b', isHijab: true, hijabColor: '#111827', hasGlasses: false, tieColor: '#000' }),
+            createFormalStudioPortrait({ skin: '#eab676', hair: '#27272a', isHijab: false, hasGlasses: true, tieColor: '#1d4ed8' }),
+            createFormalStudioPortrait({ skin: '#ffdbac', hair: '#18181b', isHijab: true, hijabColor: '#d6ccc2', hasGlasses: false, tieColor: '#000' })
+        ];
+
+        const DEFAULT_CANDIDATES = [
+            { id: 1, name: "Yosep Rohayadi", photo: PRESET_PORTRAITS[0] },
+            { id: 2, name: "Ikmal Wiawan", photo: PRESET_PORTRAITS[1] },
+            { id: 3, name: "Devi Nurhayati", photo: PRESET_PORTRAITS[2] },
+            { id: 4, name: "Budi Prayoga", photo: PRESET_PORTRAITS[3] },
+            { id: 5, name: "Neng Kuraesin", photo: PRESET_PORTRAITS[4] }
+        ];
+
+        // =========================================================================
+        // 2. STATE APLIKASI & PENYIMPANAN LOKAL
+        // =========================================================================
+        let state = {
+            desa: "SUKALUYU",
+            kecamatan: "CIBEUNYING KALER",
+            kabupaten: "KOTA BANDUNG",
+            tahun: "2025",
+            voterName: "MOCHAMAD ALDDY",
+            regionLogo: DEFAULT_REGION_LOGO_SVG,
+            candidateCount: 5,
+            candidates: JSON.parse(JSON.stringify(DEFAULT_CANDIDATES)),
+            selectedTarget: null, // angka id kandidat (1..5) atau 'ABSTAIN'
+            lastTxCode: "",
+            lastTimestamp: ""
+        };
+
+        let tempSettingsCandidates = [];
+        let tempSettingsLogo = "";
+        let activeMediaStream = null;
+        let portraitGuardDismissed = false;
+
+        function loadState() {
+            try {
+                const raw = localStorage.getItem('simulasi_pilkades_lanskap_v1');
+                if (raw) {
+                    const parsed = JSON.parse(raw);
+                    state = { ...state, ...parsed };
+                }
+            } catch (e) {
+                console.warn("Gagal memuat konfigurasi tersimpan:", e);
+            }
+        }
+
+        function saveState() {
+            try {
+                localStorage.setItem('simulasi_pilkades_lanskap_v1', JSON.stringify(state));
+            } catch (e) {
+                console.warn("Gagal menyimpan konfigurasi:", e);
+            }
+        }
+
+        // =========================================================================
+        // 3. DETEKSI POSISI LAYAR LANSKAP
+        // =========================================================================
+        function checkLandscapeOrientation() {
+            const overlay = document.getElementById('portraitGuardOverlay');
+            if (portraitGuardDismissed) {
+                overlay.classList.add('hidden');
+                overlay.classList.remove('flex');
+                return;
+            }
+            if (window.innerHeight > window.innerWidth && window.innerWidth < 900) {
+                overlay.classList.remove('hidden');
+                overlay.classList.add('flex');
+            } else {
+                overlay.classList.add('hidden');
+                overlay.classList.remove('flex');
+            }
+        }
+
+        function dismissPortraitGuard() {
+            portraitGuardDismissed = true;
+            checkLandscapeOrientation();
+        }
+
+        // =========================================================================
+        // 4. EFEK SUARA SIMULASI (WEB AUDIO API - BEEP SCANNER & SUARA COBLOS)
+        // =========================================================================
+        function playToneBeep(freq = 880, duration = 0.12, type = 'sine') {
+            try {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                if (!AudioCtx) return;
+                const ctx = new AudioCtx();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, ctx.currentTime);
+                gain.gain.setValueAtTime(0.12, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + duration);
+            } catch (e) {}
+        }
+
+        function playPunchSound() {
+            playToneBeep(160, 0.09, 'triangle');
+        }
+
+        function playScannerBeep() {
+            playToneBeep(1200, 0.14, 'sine');
+        }
+
+        function playSuccessChime() {
+            playToneBeep(587.33, 0.12, 'sine');
+            setTimeout(() => playToneBeep(880, 0.22, 'sine'), 110);
+        }
+
+        // =========================================================================
+        // 5. NAVIGASI ANTAR HALAMAN (WORKFLOW)
+        // =========================================================================
+        function showScreen(screenId) {
+            ['viewWelcome', 'viewScanner', 'viewBallot', 'viewReceipt'].forEach(id => {
+                document.getElementById(id).classList.add('hidden');
+            });
+            document.getElementById(screenId).classList.remove('hidden');
+
+            // Matikan kamera jika meninggalkan layar pemindai
+            if (screenId !== 'viewScanner') {
+                stopCameraStream();
+            }
+        }
+
+        function syncAllRegionAndVoterUI() {
+            // View 1: Welcome
+            document.getElementById('welcomeRegionLogo').src = state.regionLogo;
+            document.getElementById('welcomeDesaName').textContent = state.desa;
+            document.getElementById('welcomeKecamatanName').textContent = state.kecamatan;
+            document.getElementById('welcomeKabupatenName').textContent = state.kabupaten;
+            document.getElementById('welcomeTahun').textContent = state.tahun;
+            document.getElementById('welcomeVoterNamePreview').textContent = state.voterName;
+            document.getElementById('previewCountLabel').textContent = state.candidateCount;
+
+            // View 2: Scanner
+            document.getElementById('scannerRegionLogo').src = state.regionLogo;
+            document.getElementById('scannerDesaTitle').textContent = state.desa;
+            document.getElementById('scannerTahunTitle').textContent = state.tahun;
+            document.getElementById('scannerCardVoterName').textContent = state.voterName;
+            document.getElementById('scannerVoterInput').value = state.voterName;
+
+            // View 3: Ballot / Surat Suara
+            document.getElementById('ballotRegionLogo').src = state.regionLogo;
+            document.getElementById('ballotVoterName').textContent = state.voterName;
+            document.getElementById('ballotDesaName').textContent = state.desa;
+            document.getElementById('ballotKecamatanName').textContent = state.kecamatan;
+            document.getElementById('ballotKabupatenName').textContent = state.kabupaten;
+            document.getElementById('ballotTahun').textContent = state.tahun;
+
+            // View 6: Receipt / Tanda Bukti
+            document.getElementById('receiptRegionLogo').src = state.regionLogo;
+            document.getElementById('receiptDesaName').textContent = state.desa;
+            document.getElementById('receiptKecamatanName').textContent = state.kecamatan;
+            document.getElementById('receiptKabupatenName').textContent = state.kabupaten;
+            document.getElementById('receiptTahun').textContent = state.tahun;
+            document.getElementById('receiptVoterName').textContent = state.voterName;
+        }
+
+        function setCandidateCount(count) {
+            state.candidateCount = count;
+            saveState();
+            updateCountButtons();
+            renderWelcomePreview();
+            document.getElementById('previewCountLabel').textContent = count;
+        }
+
+        function updateCountButtons() {
+            for (let i = 2; i <= 5; i++) {
+                const btn = document.getElementById(`btnCount${i}`);
+                if (i === state.candidateCount) {
+                    btn.className = "px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-extrabold bg-[#2188dd] text-white shadow-xs transition cursor-pointer";
+                } else {
+                    btn.className = "px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-bold text-slate-600 hover:bg-slate-200/70 transition cursor-pointer";
+                }
+            }
+        }
+
+        function renderWelcomePreview() {
+            const container = document.getElementById('welcomeCandidatesPreview');
+            const activeList = state.candidates.slice(0, state.candidateCount);
+
+            container.style.gridTemplateColumns = `repeat(${state.candidateCount}, minmax(0, 1fr))`;
+
+            container.innerHTML = activeList.map((cand, idx) => `
+                <div class="bg-[#f3f4f6] rounded-xl p-2 border border-slate-200/80 flex flex-col items-center text-center shadow-2xs">
+                    <div class="w-full aspect-[4/4.3] rounded-lg overflow-hidden bg-[#1e88e5] mb-2 relative">
+                        <img src="${cand.photo}" alt="${escapeHTML(cand.name)}" class="w-full h-full object-cover">
+                        <span class="absolute top-1.5 left-1.5 w-6 h-6 rounded-md bg-white/95 text-slate-900 font-extrabold text-xs flex items-center justify-center shadow">
+                            ${idx + 1}
+                        </span>
+                    </div>
+                    <p class="text-xs font-extrabold text-slate-800 truncate w-full px-1">${escapeHTML(cand.name)}</p>
+                </div>
+            `).join('');
+        }
+
+        // =========================================================================
+        // 6. ALUR PEMINDAI BARCODE (VIEW 2)
+        // =========================================================================
+        function startVotingWorkflow() {
+            state.selectedTarget = null;
+            document.getElementById('scanSuccessOverlay').classList.add('hidden');
+            syncAllRegionAndVoterUI();
+            showScreen('viewScanner');
+        }
+
+        function syncVoterNameFromScanner(val) {
+            const clean = val.trim() || "PEMILIH SIMULASI";
+            state.voterName = clean.toUpperCase();
+            document.getElementById('scannerCardVoterName').textContent = state.voterName;
+            saveState();
+        }
+
+        async function toggleRealCamera() {
+            const videoEl = document.getElementById('scannerVideo');
+            const simBackdrop = document.getElementById('scannerSimulatedBackdrop');
+            const btnText = document.getElementById('btnToggleCameraText');
+
+            if (activeMediaStream) {
+                stopCameraStream();
+                return;
+            }
+
+            try {
+                activeMediaStream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: "environment" },
+                    audio: false
+                });
+                videoEl.srcObject = activeMediaStream;
+                videoEl.classList.remove('hidden');
+                simBackdrop.classList.add('hidden');
+                btnText.textContent = "Matikan Kamera Perangkat";
+            } catch (err) {
+                // Jika izin kamera ditolak / perangkat tanpa kamera, tetap gunakan pemindai simulasi
+                btnText.textContent = "Kamera Tidak Tersedia (Mode Simulasi)";
+            }
+        }
+
+        function stopCameraStream() {
+            if (activeMediaStream) {
+                activeMediaStream.getTracks().forEach(t => t.stop());
+                activeMediaStream = null;
+            }
+            const videoEl = document.getElementById('scannerVideo');
+            const simBackdrop = document.getElementById('scannerSimulatedBackdrop');
+            const btnText = document.getElementById('btnToggleCameraText');
+            if (videoEl) videoEl.classList.add('hidden');
+            if (simBackdrop) simBackdrop.classList.remove('hidden');
+            if (btnText) btnText.textContent = "Aktifkan Kamera Perangkat";
+        }
+
+        function triggerBarcodeScanSuccess() {
+            playScannerBeep();
+            document.getElementById('scanVerifiedVoterName').textContent = state.voterName;
+            document.getElementById('scanSuccessOverlay').classList.remove('hidden');
+
+            setTimeout(() => {
+                openBallotScreen();
+            }, 1100);
+        }
+
+        // =========================================================================
+        // 7. HALAMAN PEMILIHAN / SURAT SUARA (VIEW 3 - PERSIS REFERENSI)
+        // =========================================================================
+        function openBallotScreen() {
+            state.selectedTarget = null;
+            syncAllRegionAndVoterUI();
+            renderBallotCards();
+            updateBallotActionButtons();
+            showScreen('viewBallot');
+        }
+
+        // SVG Efek Lubang Coblos Paku (Persis seperti pada gambar referensi)
+        const PUNCH_HOLE_SVG = `
+            <div class="absolute top-1/2 left-1/2 w-20 h-20 sm:w-24 sm:h-24 pointer-events-none animate-punch z-20" style="transform: translate(-50%, -50%);">
+                <svg viewBox="0 0 100 100" class="w-full h-full drop-shadow-md">
+                    <!-- Sobekan Kertas Putih Radial di Sekitar Lubang -->
+                    <polygon points="50,4 58,19 74,10 73,27 91,27 81,42 96,52 80,61 89,78 71,76 70,94 55,83 45,96 38,80 20,88 24,70 7,67 19,53 6,40 23,35 18,17 35,23 41,6" fill="#e2e8f0" stroke="#cbd5e1" stroke-width="1"/>
+                    <!-- Lubang Hitam/Abu Gelap Tembus Paku -->
+                    <polygon points="50,18 56,29 68,23 66,36 80,37 71,48 82,56 69,62 75,74 62,72 60,85 50,76 41,85 37,72 24,76 28,63 16,59 26,49 17,39 30,36 27,23 40,28" fill="#334155"/>
+                    <circle cx="50" cy="51" r="14" fill="#1e293b"/>
+                </svg>
+            </div>
+        `;
+
+        function renderBallotCards() {
+            const row = document.getElementById('ballotCandidatesRow');
+            const activeList = state.candidates.slice(0, state.candidateCount);
+
+            // Atur grid agar 2, 3, 4, atau 5 kartu selalu sejajar 1 baris proporsional di layar lanskap
+            row.style.gridTemplateColumns = `repeat(${state.candidateCount}, minmax(0, 1fr))`;
+
+            if (state.candidateCount === 2) {
+                row.className = "w-full max-w-xl grid gap-6 justify-center items-stretch mb-6";
+            } else if (state.candidateCount === 3) {
+                row.className = "w-full max-w-3xl grid gap-5 justify-center items-stretch mb-6";
+            } else if (state.candidateCount === 4) {
+                row.className = "w-full max-w-5xl grid gap-5 justify-center items-stretch mb-6";
+            } else {
+                row.className = "w-full max-w-6xl grid gap-4 lg:gap-5 justify-center items-stretch mb-6";
+            }
+
+            row.innerHTML = activeList.map((cand) => {
+                const isSelected = state.selectedTarget === cand.id;
+                return `
+                <div onclick="selectCandidateOnBallot(${cand.id})" class="candidate-card-box ${isSelected ? 'selected' : ''} p-2.5 flex flex-col cursor-pointer relative">
+                    
+                    <!-- Foto Kandidat Latar Biru -->
+                    <div class="relative w-full aspect-[4/4.35] rounded-xl overflow-hidden bg-[#1e88e5]">
+                        <img src="${cand.photo}" alt="${escapeHTML(cand.name)}" class="w-full h-full object-cover">
+                        ${isSelected ? PUNCH_HOLE_SVG : ''}
+                    </div>
+
+                    <!-- Kotak Nama Putih di Bawah Foto -->
+                    <div class="pt-3 pb-1.5 px-1 text-center flex-grow flex items-center justify-center">
+                        <p class="text-xs sm:text-sm lg:text-[15px] font-extrabold text-slate-900 leading-tight">
+                            ${escapeHTML(cand.name)}
+                        </p>
+                    </div>
+
+                </div>
+                `;
+            }).join('');
+        }
+
+        function selectCandidateOnBallot(candidateId) {
+            state.selectedTarget = candidateId;
+            playPunchSound();
+            renderBallotCards();
+            updateBallotActionButtons();
+        }
+
+        function selectAbstainOption() {
+            state.selectedTarget = 'ABSTAIN';
+            playPunchSound();
+            renderBallotCards();
+            updateBallotActionButtons();
+        }
+
+        function updateBallotActionButtons() {
+            const btnConfirm = document.getElementById('btnConfirmSelection');
+            const btnAbstain = document.getElementById('btnAbstainCard');
+
+            if (state.selectedTarget === 'ABSTAIN') {
+                btnAbstain.classList.add('border-red-600', 'bg-red-50');
+                btnAbstain.classList.remove('border-transparent', 'bg-[#f5f6f8]');
+            } else {
+                btnAbstain.classList.remove('border-red-600', 'bg-red-50');
+                btnAbstain.classList.add('border-transparent', 'bg-[#f5f6f8]');
+            }
+
+            if (state.selectedTarget !== null) {
+                btnConfirm.disabled = false;
+                btnConfirm.textContent = state.selectedTarget === 'ABSTAIN'
+                    ? "KONFIRMASI TIDAK MEMILIH"
+                    : "PILIH KANDIDAT INI";
+            } else {
+                btnConfirm.disabled = true;
+                btnConfirm.textContent = "PILIH KANDIDAT INI";
+            }
+        }
+
+        // =========================================================================
+        // 8. POP-UP KONFIRMASI & TERIMA KASIH (VIEW 4 & VIEW 5)
+        // =========================================================================
+        function openConfirmVoteModal() {
+            if (state.selectedTarget === null) return;
+
+            const questionEl = document.getElementById('confirmQuestionText');
+            const candBox = document.getElementById('confirmCandidateBox');
+            const abstainBox = document.getElementById('confirmAbstainBox');
+
+            if (state.selectedTarget === 'ABSTAIN') {
+                questionEl.textContent = "Anda yakin tidak akan memilih?";
+                candBox.classList.add('hidden');
+                abstainBox.classList.remove('hidden');
+            } else {
+                const cand = state.candidates.find(c => c.id === state.selectedTarget);
+                if (!cand) return;
+                questionEl.textContent = "Anda yakin akan memilih kandidat ini?";
+                document.getElementById('confirmCandidatePhoto').src = cand.photo;
+                document.getElementById('confirmCandidateName').textContent = cand.name;
+                candBox.classList.remove('hidden');
+                abstainBox.classList.add('hidden');
+            }
+
+            document.getElementById('modalConfirmVote').classList.remove('hidden');
+        }
+
+        function closeConfirmVoteModal() {
+            document.getElementById('modalConfirmVote').classList.add('hidden');
+        }
+
+        function submitConfirmedVote() {
+            closeConfirmVoteModal();
+            playSuccessChime();
+
+            // Buat kode transaksi & waktu bukti pemilihan
+            const randomDigits = Math.floor(10000 + Math.random() * 90000);
+            state.lastTxCode = `EV-${state.tahun}-${randomDigits}`;
+            const now = new Date();
+            state.lastTimestamp = now.toLocaleDateString('id-ID', {
+                day: '2-digit', month: 'short', year: 'numeric'
+            }) + ', ' + now.toLocaleTimeString('id-ID', {
+                hour: '2-digit', minute: '2-digit'
+            }) + ' WIB';
+
+            // Tampilkan Pop-up Terima Kasih
+            document.getElementById('modalThankYou').classList.remove('hidden');
+        }
+
+        function proceedToReceipt() {
+            document.getElementById('modalThankYou').classList.add('hidden');
+            syncAllRegionAndVoterUI();
+            document.getElementById('receiptTxCode').textContent = state.lastTxCode;
+            document.getElementById('receiptTimestamp').textContent = state.lastTimestamp;
+            showScreen('viewReceipt');
+        }
+
+        // =========================================================================
+        // 9. TANDA BUKTI & KEMBALI KE HALAMAN UTAMA (VIEW 6)
+        // =========================================================================
+        function printReceipt() {
+            window.print();
+        }
+
+        function goToWelcome() {
+            state.selectedTarget = null;
+            syncAllRegionAndVoterUI();
+            updateCountButtons();
+            renderWelcomePreview();
+            showScreen('viewWelcome');
+        }
+
+        // =========================================================================
+        // 10. MODAL PENGATURAN (EDIT FOTO/NAMA KANDIDAT & IDENTITAS WILAYAH)
+        // =========================================================================
+        function openSettingsModal(defaultTab = 'candidates') {
+            tempSettingsCandidates = JSON.parse(JSON.stringify(state.candidates));
+            tempSettingsLogo = state.regionLogo;
+
+            document.getElementById('modalCandidateCountSelect').value = state.candidateCount;
+            document.getElementById('settingsLogoPreview').src = tempSettingsLogo;
+            document.getElementById('inputDesa').value = state.desa;
+            document.getElementById('inputKecamatan').value = state.kecamatan;
+            document.getElementById('inputKabupaten').value = state.kabupaten;
+            document.getElementById('inputTahun').value = state.tahun;
+            document.getElementById('inputVoterName').value = state.voterName;
+
+            renderSettingsCandidatesList(state.candidateCount);
+            switchSettingsTab(defaultTab);
+            document.getElementById('modalSettings').classList.remove('hidden');
+        }
+
+        function closeSettingsModal() {
+            document.getElementById('modalSettings').classList.add('hidden');
+        }
+
+        function switchSettingsTab(tab) {
+            const tabCand = document.getElementById('settingsTabCandidates');
+            const tabReg = document.getElementById('settingsTabRegion');
+            const btnCand = document.getElementById('tabBtnCandidates');
+            const btnReg = document.getElementById('tabBtnRegion');
+
+            if (tab === 'candidates') {
+                tabCand.classList.remove('hidden');
+                tabReg.classList.add('hidden');
+                btnCand.className = "pb-3 text-xs sm:text-sm font-extrabold border-b-2 border-[#2188dd] text-[#2188dd] cursor-pointer";
+                btnReg.className = "pb-3 text-xs sm:text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-800 cursor-pointer";
+            } else {
+                tabCand.classList.add('hidden');
+                tabReg.classList.remove('hidden');
+                btnReg.className = "pb-3 text-xs sm:text-sm font-extrabold border-b-2 border-[#2188dd] text-[#2188dd] cursor-pointer";
+                btnCand.className = "pb-3 text-xs sm:text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-800 cursor-pointer";
+            }
+        }
+
+        function renderSettingsCandidatesList(count) {
+            const grid = document.getElementById('settingsCandidatesGrid');
+            const list = tempSettingsCandidates.slice(0, count);
+
+            grid.innerHTML = list.map((cand, idx) => `
+                <div class="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 flex items-center space-x-3.5">
+                    <div class="relative w-16 h-20 rounded-xl overflow-hidden bg-[#1e88e5] border border-slate-300 shrink-0">
+                        <img id="settingsCandImg_${idx}" src="${cand.photo}" alt="Foto" class="w-full h-full object-cover">
+                        <span class="absolute top-1 left-1 w-5 h-5 rounded bg-white/95 text-slate-900 font-extrabold text-[10px] flex items-center justify-center">
+                            ${idx + 1}
+                        </span>
+                    </div>
+                    <div class="flex-grow space-y-2 min-w-0">
+                        <div>
+                            <label class="block text-[10px] font-bold uppercase text-slate-500 mb-0.5">Nama Kandidat #${idx + 1}</label>
+                            <input type="text" value="${escapeHTML(cand.name)}" oninput="tempSettingsCandidates[${idx}].name = this.value" class="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs sm:text-sm font-bold text-slate-900 focus:border-blue-500 outline-none">
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <label class="inline-flex items-center px-3 py-1.5 bg-white hover:bg-blue-50 text-[#2188dd] border border-blue-200 rounded-lg text-[11px] font-bold cursor-pointer transition">
+                                <i class="fa-solid fa-camera mr-1.5"></i> Ganti Foto
+                                <input type="file" accept="image/*" onchange="handleCandidatePhotoUpload(event, ${idx})" class="hidden">
+                            </label>
+                            <button type="button" onclick="resetSingleCandidatePhoto(${idx})" class="text-[11px] font-semibold text-slate-400 hover:text-slate-600 cursor-pointer">
+                                Reset Foto
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function handleCandidatePhotoUpload(event, idx) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    const targetW = 300;
+                    const targetH = 330;
+                    canvas.width = targetW;
+                    canvas.height = targetH;
+                    const ctx = canvas.getContext('2d');
+
+                    // Latar biru pas foto jika gambar memiliki transparansi
+                    ctx.fillStyle = '#1e88e5';
+                    ctx.fillRect(0, 0, targetW, targetH);
+
+                    // Center-crop proporsional
+                    const scale = Math.max(targetW / img.width, targetH / img.height);
+                    const drawW = img.width * scale;
+                    const drawH = img.height * scale;
+                    const offsetX = (targetW - drawW) / 2;
+                    const offsetY = (targetH - drawH) / 2;
+                    ctx.drawImage(img, offsetX, offsetY, drawW, drawH);
+
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+                    tempSettingsCandidates[idx].photo = dataUrl;
+                    document.getElementById(`settingsCandImg_${idx}`).src = dataUrl;
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function resetSingleCandidatePhoto(idx) {
+            tempSettingsCandidates[idx].photo = PRESET_PORTRAITS[idx % PRESET_PORTRAITS.length];
+            document.getElementById(`settingsCandImg_${idx}`).src = tempSettingsCandidates[idx].photo;
+        }
+
+        function handleLogoUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                tempSettingsLogo = e.target.result;
+                document.getElementById('settingsLogoPreview').src = tempSettingsLogo;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function resetRegionLogo() {
+            tempSettingsLogo = DEFAULT_REGION_LOGO_SVG;
+            document.getElementById('settingsLogoPreview').src = tempSettingsLogo;
+        }
+
+        function resetAllToDefault() {
+            tempSettingsCandidates = JSON.parse(JSON.stringify(DEFAULT_CANDIDATES));
+            tempSettingsLogo = DEFAULT_REGION_LOGO_SVG;
+            document.getElementById('modalCandidateCountSelect').value = 5;
+            document.getElementById('settingsLogoPreview').src = tempSettingsLogo;
+            document.getElementById('inputDesa').value = "SUKALUYU";
+            document.getElementById('inputKecamatan').value = "CIBEUNYING KALER";
+            document.getElementById('inputKabupaten').value = "KOTA BANDUNG";
+            document.getElementById('inputTahun').value = "2025";
+            document.getElementById('inputVoterName').value = "MOCHAMAD ALDDY";
+            renderSettingsCandidatesList(5);
+        }
+
+        function saveSettingsModal() {
+            const newCount = parseInt(document.getElementById('modalCandidateCountSelect').value);
+            state.candidateCount = newCount;
+            state.regionLogo = tempSettingsLogo;
+            state.desa = (document.getElementById('inputDesa').value.trim() || "SUKALUYU").toUpperCase();
+            state.kecamatan = (document.getElementById('inputKecamatan').value.trim() || "CIBEUNYING KALER").toUpperCase();
+            state.kabupaten = (document.getElementById('inputKabupaten').value.trim() || "KOTA BANDUNG").toUpperCase();
+            state.tahun = document.getElementById('inputTahun').value.trim() || "2025";
+            state.voterName = (document.getElementById('inputVoterName').value.trim() || "MOCHAMAD ALDDY").toUpperCase();
+
+            tempSettingsCandidates.forEach((c, idx) => {
+                if (!c.name || !c.name.trim()) {
+                    c.name = `Kandidat ${idx + 1}`;
+                }
+            });
+            state.candidates = tempSettingsCandidates;
+
+            saveState();
+            closeSettingsModal();
+            syncAllRegionAndVoterUI();
+            updateCountButtons();
+            renderWelcomePreview();
+        }
+
+        function escapeHTML(str) {
+            if (!str) return '';
+            return str.replace(/[&<>'"]/g, tag => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                "'": '&#39;',
+                '"': '&quot;'
+            }[tag]));
+        }
+
+        // =========================================================================
+        // 11. INISIALISASI APLIKASI
+        // =========================================================================
+        window.addEventListener('resize', checkLandscapeOrientation);
+        window.addEventListener('orientationchange', checkLandscapeOrientation);
+
+        window.onload = function() {
+            loadState();
+            checkLandscapeOrientation();
+            syncAllRegionAndVoterUI();
+            updateCountButtons();
+            renderWelcomePreview();
+            showScreen('viewWelcome');
+        };
+    </script>
+</body>
+</html>
