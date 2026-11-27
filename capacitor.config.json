@@ -1,7 +1,7 @@
 {
   "appId": "id.desa.evotingpilkades",
   "appName": "E-Voting Pilkades",
-  "webDir": ".",
+  "webDir": "www",
   "server": {
     "androidScheme": "https"
   }
